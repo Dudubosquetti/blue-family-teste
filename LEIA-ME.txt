@@ -1,0 +1,21 @@
+MINI ERP FINANCEIRO FAMILIAR — PWA
+
+ARQUIVOS
+- index.html: o sistema completo.
+- manifest.json: nome, ícones e configuração de instalação.
+- service-worker.js: cache para abrir a aplicação offline depois do primeiro acesso online.
+- icons/: ícones do aplicativo.
+
+COMO PUBLICAR
+1. Extraia esta pasta.
+2. Envie TODO o conteúdo da pasta Mini-ERP-Familiar-PWA para uma hospedagem estática com HTTPS.
+   Exemplos: GitHub Pages, Netlify ou Cloudflare Pages.
+3. Abra o endereço publicado no celular e aguarde carregar uma vez com internet.
+4. Android/Chrome: menu ⋮ > Instalar app (ou Adicionar à tela inicial).
+   iPhone/Safari: Compartilhar > Adicionar à Tela de Início.
+
+IMPORTANTE
+- PWA precisa ser servido por HTTPS (ou localhost para testes); abrir o HTML diretamente pelo gerenciador de arquivos não ativa a instalação nem o service worker.
+- O sistema mantém os lançamentos no armazenamento local do navegador (localStorage). Os dados não sincronizam automaticamente entre aparelhos.
+- Para o modo offline, abra o app pelo menos uma vez com internet para que o navegador armazene a página e os recursos externos (Tailwind, Chart.js, Font Awesome e fontes). A primeira visita offline não é garantida.
+- Faça exportações/backup dos dados regularmente. Limpar os dados do navegador pode apagar os lançamentos salvos.

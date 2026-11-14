@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta id="themeColorMeta" name="theme-color" content="#0f172a">
+<meta name="description" content="Mini ERP para organizar as finanças da família.">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>Blue family - Finanças Familiares</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: {
+    fontFamily: { sans: ['Inter', 'sans-serif'] },
+    colors: { brand: {50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8'} }
+  }}
+};
+</script>
+<style>
+* { box-sizing: border-box; }
+html, body { width:100%; max-width:100%; overflow-x:hidden; }
+body { font-family:Inter,sans-serif; }
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:9999px; }
+.dark ::-webkit-scrollbar-thumb { background:#475569; }
+button, input, select { max-width:100%; }
+canvas { max-width:100%; }
+@media (max-width: 640px) {
+  header .max-w-7xl { padding-left:12px; padding-right:12px; }
+  main { padding-left:12px !important; padding-right:12px !important; }
+  header h1 { font-size:16px; }
+  #exportMenu { right:0; max-width:calc(100vw - 24px); }
+  .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .table-scroll table { min-width:720px; }
+  #modal, #recurringModal, #calcModal { align-items:flex-start; padding:10px; }
+  #modalPanel, #recurringModal > div, #calcModal > div { max-height:calc(100dvh - 20px); overflow-y:auto; margin:auto 0; }
+  #transactionForm { padding:16px; }
+}
+
+.nav-link{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;border-radius:12px;color:#64748b;font-size:13px;font-weight:600;transition:.15s}
+.nav-link:hover,.mobile-nav-link:hover{background:#eff6ff;color:#2563eb}
+.nav-link i{font-size:17px;width:20px;text-align:center}
+.nav-link span{display:none}
+.mobile-nav-link{display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 2px;color:#64748b;font-size:10px;font-weight:600}
+.mobile-nav-link i{font-size:17px}
+@media(min-width:1280px){.nav-link{justify-content:flex-start;padding:12px 14px}.nav-link span{display:inline}}
+@media(min-width:1024px){header,.main-content-wrap{margin-left:64px!important} main{max-width:none!important}}
+@media(min-width:1280px){header,.main-content-wrap{margin-left:224px!important}}
+@media(max-width:1023px){main{padding-bottom:100px!important} #blueInviteBanner{margin-bottom:12px}}
+
+</style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+<div id="blueAuthGate" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 p-4 overflow-y-auto">
+  <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-800 shadow-2xl p-6 sm:p-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white"><i class="fa-solid fa-wallet text-xl"></i></div>
+      <div><h2 class="text-xl font-bold text-slate-900 dark:text-white">Blue Family</h2><p class="text-sm text-slate-500 dark:text-slate-400">Finanças compartilhadas da família</p></div>
+    </div>
+   <label class="block text-sm font-medium mb-4">Seu nome
+      <input id="blueUserName" class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-3" placeholder="Como devemos chamar você?" maxlength="50" autocomplete="name">
+   </label>
+   <div id="familyPanel">
+      <h3 class="font-bold text-lg mb-1 text-slate-900 dark:text-white">Compartilhar com a família</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-5">Sem e-mail e sem senha. Crie uma família ou digite o código que recebeu.</p>
+      
+      <!-- Adicionado type="button" no botão de criar -->
+      <label class="block text-sm font-medium mb-2">Nome da família<input id="blueFamilyName" class="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-3" value="Minha Família" maxlength="60"></label>
+      <button type="button" id="blueCreateFamily" class="w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 mb-4">Criar família e gerar código</button>
+      
+      <div class="border-t border-slate-200 dark:border-slate-700 pt-4">
+        <label class="block text-sm font-medium">Já tem um código familiar?<input id="blueInviteCode" autocomplete="off" class="mt-1 w-full uppercase tracking-widest text-center rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-3" placeholder="EX: BLUE-XXXXXXXXXXXX" maxlength="17"></label>
+        <!-- Adicionado type="button" no botão de entrar -->
+        <button type="button" id="blueJoinFamily" class="w-full rounded-xl border border-blue-600 text-blue-700 dark:text-blue-300 font-semibold py-3 mt-3">Entrar na família</button>
+      </div>
+    </div>
+    <div id="blueAuthMessage" role="status" class="hidden mt-4 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-200 p-3 text-sm"></div>
+    <div class="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+      <span id="blueUserLabel" class="text-xs text-slate-500 dark:text-slate-400">Acesso compartilhado por código familiar</span>
+      <button id="blueSignOut" class="hidden text-sm text-rose-600 hover:underline">Trocar família</button>
+    </div>
+    <p class="mt-4 text-[11px] leading-relaxed text-slate-400">O código funciona como uma chave de acesso. Compartilhe somente com pessoas de confiança.</p>
+  </div>
+</div>
+
+
+
+<header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:min-h-16">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+            <i class="fa-solid fa-wallet text-xl"></i>
+          </div>
+          <div class="min-w-0">
+            <h1 class="font-bold text-lg leading-tight text-slate-900 dark:text-white">FinançasFamiliares</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Blue family</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 sm:hidden">
+          <button onclick="openCalcModal()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" title="Calculadora Rápida">
+            <i class="fa-solid fa-calculator text-lg"></i>
+          </button>
+          
+
+        </div>
+      </div>
+      
+
+      <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        
+        <button onclick="openCalcModal()" class="hidden sm:inline-flex p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" title="Calculadora Rápida">
+          <i class="fa-solid fa-calculator text-lg"></i>
+        </button>
+
+        <button onclick="loadMockData()" class="hidden sm:inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 whitespace-nowrap">
+          <i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-blue-500"></i> Dados Exemplo
+        </button>
+        <div class="relative flex-1 sm:flex-none">
+          <button onclick="toggleExportMenu()" class="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 whitespace-nowrap">
+            <i class="fa-solid fa-download mr-1.5"></i> Exportar
+          </button>
+          <div id="exportMenu" class="hidden absolute right-0 mt-2 w-44 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 py-1 z-50">
+            <button onclick="exportCSV()" class="w-full text-left px-4 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700"><i class="fa-solid fa-file-csv mr-2 text-blue-600"></i>Baixar em CSV</button>
+            <button onclick="exportJSON()" class="w-full text-left px-4 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700"><i class="fa-solid fa-file-code mr-2 text-indigo-500"></i>Baixar em JSON</button>
+          </div>
+        </div>
+        <button onclick="openModal()" class="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-md whitespace-nowrap">
+          <i class="fa-solid fa-plus mr-1.5"></i> Nova Despesa
+        </button>
+        <div class="relative">
+          <button id="profileMenuButton" onclick="toggleProfileMenu()" aria-label="Abrir perfil e opções" aria-expanded="false" class="inline-flex items-center justify-center w-10 h-10 rounded-xl text-slate-600 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600">
+            <i class="fa-solid fa-ellipsis-vertical text-lg"></i>
+          </button>
+          <div id="profileMenu" class="hidden absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-24px)] rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl z-[70] p-4 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 flex items-center justify-center"><i class="fa-solid fa-user"></i></div>
+              <div class="min-w-0 flex-1"><p class="text-[11px] uppercase tracking-wide text-slate-400">Seu perfil</p><p id="profileUserName" class="font-bold truncate">Usuário</p><p id="profileFamilyName" class="text-xs text-slate-500 truncate">Família</p></div>
+            </div>
+            <div class="flex gap-2"><input id="profileNameInput" maxlength="50" placeholder="Seu nome" class="min-w-0 flex-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-xs"><button onclick="saveProfileName()" class="rounded-lg bg-blue-600 text-white px-3 py-2 text-xs font-bold">Salvar nome</button></div>
+            <div class="rounded-xl bg-slate-50 dark:bg-slate-700/60 p-3">
+              <div class="flex items-center justify-between gap-2"><span class="text-xs font-semibold text-slate-500 dark:text-slate-300">Código da família</span><button onclick="copyFamilyCode()" class="text-xs font-bold text-blue-600 dark:text-blue-300"><i class="fa-regular fa-copy mr-1"></i>Copiar</button></div>
+              <p id="profileFamilyCode" class="font-mono text-sm font-bold tracking-wider mt-1 break-all">—</p>
+            </div>
+            <div><div class="flex items-center justify-between mb-2"><h3 class="text-sm font-bold">Pessoas da família</h3><span id="profileMemberCount" class="text-xs text-slate-400">0 pessoas</span></div><div id="profileMembersList" class="space-y-2 max-h-36 overflow-y-auto"><p class="text-xs text-slate-500">Carregando participantes…</p></div></div>
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-3 flex items-center justify-between gap-3"><div><p class="text-sm font-semibold">Aparência</p><p id="profileThemeLabel" class="text-xs text-slate-500">Tema claro</p></div><button onclick="toggleTheme()" class="rounded-xl px-3 py-2 text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"><i id="profileThemeIcon" class="fa-solid fa-moon mr-1"></i>Trocar tema</button></div>
+            <button onclick="closeProfileMenu();document.getElementById('blueSignOut').click()" class="w-full text-left text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg p-2"><i class="fa-solid fa-right-from-bracket mr-2"></i>Trocar de família neste aparelho</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav id="desktopSidebar" class="hidden lg:flex fixed left-0 top-[76px] bottom-0 w-16 xl:w-56 z-20 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex-col items-center xl:items-stretch gap-2 py-5 px-2">
+  <a href="#overview" class="nav-link" title="Visão geral"><i class="fa-solid fa-gauge-high"></i><span>Visão geral</span></a>
+  <a href="#recurringSection" class="nav-link" title="Contas fixas"><i class="fa-solid fa-repeat"></i><span>Contas fixas</span></a>
+  <a href="#chartsSection" class="nav-link" title="Gráficos"><i class="fa-solid fa-chart-pie"></i><span>Gráficos</span></a>
+  <a href="#statementSection" class="nav-link" title="Extrato"><i class="fa-solid fa-list"></i><span>Extrato</span></a>
+</nav>
+<nav id="mobileBottomNav" class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 grid grid-cols-4 px-2 py-2">
+  <a href="#overview" class="mobile-nav-link"><i class="fa-solid fa-gauge-high"></i><span>Início</span></a>
+  <a href="#recurringSection" class="mobile-nav-link"><i class="fa-solid fa-repeat"></i><span>Contas</span></a>
+  <a href="#chartsSection" class="mobile-nav-link"><i class="fa-solid fa-chart-pie"></i><span>Gráficos</span></a>
+  <a href="#statementSection" class="mobile-nav-link"><i class="fa-solid fa-list"></i><span>Extrato</span></a>
+</nav>
+
+<div id="blueInviteBanner"
+     class="hidden w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+  <div class="rounded-2xl border border-blue-200 dark:border-blue-800
+              bg-white dark:bg-slate-800 shadow-sm p-4">
+
+    <div class="flex flex-col sm:flex-row sm:items-center
+                justify-between gap-3">
+
+      <div>
+        <div class="text-sm font-bold text-slate-800 dark:text-white">
+          Código da família
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Compartilhe este código para convidar sua familia.
+        </p>
+        <strong id="blueInviteCodeValue"
+                class="block text-xl tracking-widest text-blue-700 dark:text-blue-300 mt-2">
+        </strong>
+      </div>
+
+      <button id="blueCopyInvite"
+              class="rounded-xl bg-blue-600 hover:bg-blue-700
+                     text-white font-semibold px-5 py-3 text-sm">
+        <i class="fa-solid fa-copy mr-2"></i>Copiar código
+      </button>
+
+    </div>
+  </div>
+</div>
+<main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <section id="overview" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm min-w-0">
+   
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto min-w-0">
+      <i class="fa-solid fa-calendar-days text-blue-600 text-lg"></i>
+      <div class="min-w-0 w-full">
+        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Período de Análise</label>
+        <div class="grid grid-cols-2 sm:flex gap-2 mt-1 w-full">
+          <select id="filterMonth" onchange="applyFilters()" class="w-full sm:w-auto min-w-0 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-2 text-sm text-slate-800 dark:text-white">
+            <option value="all">Todos os Meses</option><option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
+          </select>
+          <select id="filterYear" onchange="applyFilters()" class="w-full sm:w-auto min-w-0 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-2 text-sm text-slate-800 dark:text-white"></select>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full sm:max-w-xs min-w-0">
+      <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+      <input id="searchInput" type="search" oninput="applyFilters()" placeholder="Buscar lançamentos..." class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-800 dark:text-white">
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="flex items-center justify-between"><span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Receitas Totais</span><span class="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center"><i class="fa-solid fa-arrow-up"></i></span></div>
+      <h3 id="totalIncome" class="mt-2 text-2xl font-extrabold text-blue-600">R$ 0,00</h3><p class="text-xs text-slate-500 mt-1">Entradas registradas</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="flex items-center justify-between"><span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Despesas Totais</span><span class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 flex items-center justify-center"><i class="fa-solid fa-arrow-down"></i></span></div>
+      <h3 id="totalExpense" class="mt-2 text-2xl font-extrabold text-rose-600">R$ 0,00</h3><p class="text-xs text-slate-500 mt-1">Gastos acumulados</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="flex items-center justify-between"><span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Saldo Atual</span><span id="balanceIconBg" class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-scale-balanced"></i></span></div>
+      <h3 id="netBalance" class="mt-2 text-2xl font-extrabold">R$ 0,00</h3><p class="text-xs text-slate-500 mt-1">Diferença do período</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="flex items-center justify-between"><span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Contas Pendentes</span><span class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center"><i class="fa-solid fa-clock"></i></span></div>
+      <h3 id="pendingExpense" class="mt-2 text-2xl font-extrabold text-amber-600">R$ 0,00</h3><p id="pendingCount" class="text-xs text-slate-500 mt-1">0 conta(s) a pagar</p>
+    </div>
+  </section>
+
+  <section class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div><h2 class="font-bold text-sm"><i class="fa-solid fa-heart-pulse mr-2 text-rose-500"></i>Saúde Financeira & Orçamento Comprometido</h2><p class="text-xs text-slate-500 mt-1">Porcentagem das despesas em relação às receitas</p></div>
+      <span id="healthBadge" class="self-start px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Excelente (0%)</span>
+    </div>
+    <div class="w-full bg-slate-100 dark:bg-slate-700 h-3.5 rounded-full overflow-hidden"><div id="healthProgressBar" class="bg-blue-600 h-full rounded-full transition-all" style="width:0%"></div></div>
+  </section>
+
+  <section id="recurringSection" class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h2 class="font-bold text-base"><i class="fa-solid fa-repeat mr-2 text-blue-500"></i>Contas Fixas e Parceladas</h2>
+        <p class="text-xs text-slate-500 mt-1">Cadastre seus compromissos recorrentes e clique em "Pagar" para lançar no extrato e descontar do saldo.</p>
+      </div>
+      <button onclick="openRecurringModal()" class="inline-flex items-center justify-center px-4 py-2 text-xs font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-md whitespace-nowrap">
+        <i class="fa-solid fa-plus mr-1.5"></i> Nova conta recorrente
+      </button>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="rounded-xl bg-slate-50 dark:bg-slate-700/60 p-3">
+        <p class="text-[11px] uppercase tracking-wider text-slate-500">Comprometido por mês</p>
+        <p id="recurringMonthlyTotal" class="text-xl font-extrabold mt-1">R$ 0,00</p>
+      </div>
+      <div class="rounded-xl bg-slate-50 dark:bg-slate-700/60 p-3">
+        <p class="text-[11px] uppercase tracking-wider text-slate-500">Contas ativas</p>
+        <p id="recurringActiveCount" class="text-xl font-extrabold mt-1">0</p>
+      </div>
+      <div class="rounded-xl bg-slate-50 dark:bg-slate-700/60 p-3">
+        <p class="text-[11px] uppercase tracking-wider text-slate-500">Parcelas restantes</p>
+        <p id="recurringInstallmentsLeft" class="text-xl font-extrabold mt-1">0</p>
+      </div>
+    </div>
+    <div id="recurringCards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+    <div id="recurringEmpty" class="hidden text-center py-8 text-slate-500">
+      <i class="fa-solid fa-calendar-check text-3xl mb-2 text-slate-300"></i>
+      <p class="font-semibold text-sm">Nenhuma conta recorrente cadastrada</p>
+      <p class="text-xs mt-1">Adicione uma conta fixa, assinatura ou compra parcelada.</p>
+    </div>
+  </section>
+
+  <section id="chartsSection" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <h3 class="font-bold text-sm mb-4"><i class="fa-solid fa-chart-pie mr-2 text-blue-500"></i>Gastos por Categoria</h3>
+      <div class="relative w-full h-64"><canvas id="categoryChart"></canvas></div>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+      <h3 class="font-bold text-sm mb-4"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>Resumo por Membro da Família</h3>
+      <div class="relative w-full h-64"><canvas id="memberChart"></canvas></div>
+    </div>
+  </section>
+
+  <section id="statementSection" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-slate-200 dark:border-slate-700 space-y-3">
+      <div><h3 class="font-bold text-base"><i class="fa-solid fa-list-check mr-2 text-blue-500"></i>Extrato de Lançamentos</h3><p class="text-xs text-slate-500 mt-1">Gerencie contas a pagar e receitas registradas</p></div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <select id="filterStatus" onchange="applyFilters()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-2 text-xs"><option value="all">Todos os Status</option><option value="paid">Pagos / Recebidos</option><option value="pending">Pendentes</option></select>
+        <select id="filterCategory" onchange="applyFilters()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-2 text-xs"><option value="all">Todas as Categorias</option><option>Alimentação</option><option>Moradia</option><option>Transporte</option><option>Lazer</option><option>Saúde</option><option>Educação</option><option>Salário/Renda</option><option>Outros</option></select>
+        <select id="filterMember" onchange="applyFilters()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-2 text-xs"><option value="all">Todos os Membros</option><option>Pai</option><option>Mãe</option><option>Filho(a)</option><option>Geral/Casa</option></select>
+      </div>
+    </div>
+    <div class="table-scroll overflow-x-auto">
+      <table class="w-full text-left border-collapse text-xs sm:text-sm">
+        <thead><tr class="bg-slate-50 dark:bg-slate-700/50 text-slate-500 uppercase text-[11px] font-semibold border-b border-slate-200 dark:border-slate-700">
+          <th class="py-3 px-4">Status</th><th class="py-3 px-4">Descrição</th><th class="py-3 px-4">Categoria</th><th class="py-3 px-4">Membro</th><th class="py-3 px-4">Vencimento/Data</th><th class="py-3 px-4 text-right">Valor (R$)</th><th class="py-3 px-4 text-center">Ações</th>
+        </tr></thead>
+        <tbody id="transactionTableBody" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="hidden p-10 text-center"><div class="w-16 h-16 mx-auto mb-3 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400"><i class="fa-solid fa-folder-open text-2xl"></i></div><h4 class="font-bold">Nenhum lançamento encontrado</h4><p class="text-xs text-slate-500 mt-1">Adicione uma nova conta ou ajuste os filtros.</p></div>
+  </section>
+</main>
+
+<footer class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 mt-8">
+  <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">© Blue family Financeiro Familiar.</div>
+</footer>
+
+<!-- Modal Novo Lançamento -->
+<div id="modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3">
+  <div id="modalPanel" class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="px-6 py-4 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+      <h3 id="modalTitle" class="font-bold text-base"><i class="fa-solid fa-circle-plus text-blue-500 mr-2"></i>Nova Conta / Lançamento</h3>
+      <button type="button" onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="transactionForm" onsubmit="saveTransaction(event)" class="p-6 space-y-4">
+      <input type="hidden" id="editId">
+      <div><label class="block text-xs font-semibold mb-1">Tipo de Lançamento</label><div class="grid grid-cols-2 gap-3">
+        <label class="cursor-pointer"><input type="radio" name="type" value="income" class="peer sr-only" id="typeIncome"><span class="block p-3 text-center text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-600 peer-checked:bg-blue-600 peer-checked:text-white">Receita (Entrada)</span></label>
+        <label class="cursor-pointer"><input type="radio" name="type" value="expense" class="peer sr-only" id="typeExpense" checked><span class="block p-3 text-center text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-600 peer-checked:bg-rose-500 peer-checked:text-white">Despesa (Saída)</span></label>
+      </div></div>
+      <div><label class="block text-xs font-semibold mb-1" for="description">Descrição</label><input id="description" required maxlength="120" placeholder="Ex: Conta de Luz, Salário, Supermercado" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-semibold mb-1" for="amount">Valor (R$)</label><input type="number" step="0.01" min="0.01" id="amount" required placeholder="0,00" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm"></div>
+        <div><label class="block text-xs font-semibold mb-1" for="date">Data Vencimento/Pagamento</label><input type="date" id="date" required class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm"></div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-semibold mb-1" for="category">Categoria</label><select id="category" required class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm"><option>Alimentação</option><option>Moradia</option><option>Transporte</option><option>Lazer</option><option>Saúde</option><option>Educação</option><option>Salário/Renda</option><option>Outros</option></select></div>
+        <div><label class="block text-xs font-semibold mb-1" for="member">Membro Responsável</label><select id="member" required class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm"><option>Pai</option><option>Mãe</option><option>Filho(a)</option><option value="Geral/Casa">Geral / Casa</option></select></div>
+      </div>
+      <div><label class="block text-xs font-semibold mb-1" for="status">Status da Conta</label><select id="status" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm"><option value="paid">Pago / Concluído</option><option value="pending">Pendente / A Pagar</option></select></div>
+      <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">Cancelar</button>
+        <button type="submit" class="px-5 py-2 text-xs font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700">Salvar Lançamento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Conta Recorrente -->
+<div id="recurringModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3">
+  <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="px-6 py-4 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+      <h3 id="recurringModalTitle" class="font-bold text-base"><i class="fa-solid fa-repeat text-blue-500 mr-2"></i>Nova conta recorrente</h3>
+      <button type="button" onclick="closeRecurringModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="recurringForm" onsubmit="saveRecurring(event)" class="p-6 space-y-4">
+      <input type="hidden" id="recurringEditId">
+      <div>
+        <label class="block text-xs font-semibold mb-1" for="recurringName">Nome da conta</label>
+        <input id="recurringName" required maxlength="120" placeholder="Ex: Netflix, Internet, Carnê Casas Bahia" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringType">Tipo de conta</label>
+          <select id="recurringType" onchange="toggleInstallmentFields()" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+            <option value="fixed">Fixa (sem data para terminar)</option>
+            <option value="installment">Parcelada (quantidade definida)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringAmount">Valor mensal (R$)</label>
+          <input id="recurringAmount" type="number" step="0.01" min="0.01" required placeholder="0,00" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringStart">Primeiro vencimento</label>
+          <input id="recurringStart" type="date" required class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringDueDay">Dia do vencimento</label>
+          <input id="recurringDueDay" type="number" min="1" max="31" required class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+        </div>
+      </div>
+      <div id="installmentFields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringInstallments">Quantidade de parcelas</label>
+          <input id="recurringInstallments" type="number" min="1" max="600" placeholder="12" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringFirstInstallment">Número da primeira parcela</label>
+          <input id="recurringFirstInstallment" type="number" min="1" value="1" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringCategory">Categoria</label>
+          <select id="recurringCategory" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+            <option>Alimentação</option><option>Moradia</option><option>Transporte</option><option>Lazer</option><option>Saúde</option><option>Educação</option><option>Salário/Renda</option><option>Outros</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1" for="recurringMember">Membro responsável</label>
+          <select id="recurringMember" class="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-sm">
+            <option>Pai</option><option>Mãe</option><option>Filho(a)</option><option value="Geral/Casa">Geral / Casa</option>
+          </select>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500">Ao clicar em "Pagar" nos cartões, o lançamento será registrado diretamente no extrato como pago e descontará do saldo.</p>
+      <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <button type="button" onclick="closeRecurringModal()" class="px-4 py-2 text-xs font-semibold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">Cancelar</button>
+        <button type="submit" class="px-5 py-2 text-xs font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700">Salvar conta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Calculadora Rápida -->
+<div id="calcModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3">
+  <div class="bg-white dark:bg-slate-800 w-full max-w-xs sm:max-w-sm rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div class="px-5 py-3.5 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+      <h3 class="font-bold text-sm flex items-center gap-2 text-slate-900 dark:text-white">
+        <i class="fa-solid fa-calculator text-blue-500"></i> Calculadora Rápida
+      </h3>
+      <button type="button" onclick="closeCalcModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="p-4 space-y-3">
+      <!-- Visor da Calculadora -->
+      <div class="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-right">
+        <div id="calcHistory" class="text-xs text-slate-400 dark:text-slate-500 h-4 overflow-hidden select-none"></div>
+        <div id="calcDisplay" class="text-2xl font-extrabold text-slate-900 dark:text-white tracking-wide truncate">0</div>
+      </div>
+
+      <!-- Teclado da Calculadora -->
+      <div class="grid grid-cols-4 gap-2 text-sm font-semibold">
+        <button onclick="calcClear()" class="p-3 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-rose-600 dark:text-rose-400">C</button>
+        <button onclick="calcBackspace()" class="p-3 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300"><i class="fa-solid fa-backspace"></i></button>
+        <button onclick="calcPercent()" class="p-3 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-blue-600 dark:text-blue-400">%</button>
+        <button onclick="calcOp('/')" class="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900/80 text-blue-600 dark:text-blue-300">÷</button>
+
+        <button onclick="calcNum('7')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">7</button>
+        <button onclick="calcNum('8')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">8</button>
+        <button onclick="calcNum('9')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">9</button>
+        <button onclick="calcOp('*')" class="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900/80 text-blue-600 dark:text-blue-300">×</button>
+
+        <button onclick="calcNum('4')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">4</button>
+        <button onclick="calcNum('5')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">5</button>
+        <button onclick="calcNum('6')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">6</button>
+        <button onclick="calcOp('-')" class="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900/80 text-blue-600 dark:text-blue-300">−</button>
+
+        <button onclick="calcNum('1')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">1</button>
+        <button onclick="calcNum('2')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">2</button>
+        <button onclick="calcNum('3')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">3</button>
+        <button onclick="calcOp('+')" class="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900/80 text-blue-600 dark:text-blue-300">+</button>
+
+        <button onclick="calcNum('0')" class="col-span-2 p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">0</button>
+        <button onclick="calcDot()" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100">,</button>
+        <button onclick="calcEquals()" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">=</button>
+      </div>
+
+      <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
+        <button onclick="calcUseValue()" class="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 shadow-sm">
+          <i class="fa-solid fa-square-plus"></i> Usar Valor em Nova Conta
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-5 left-4 right-4 sm:left-auto sm:right-5 z-[60] translate-y-20 opacity-0 transition-all duration-300">
+  <div class="bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-sm border border-slate-700"><i class="fa-solid fa-circle-check text-blue-400"></i><span id="toastMessage">Operação realizada!</span></div>
+</div>
+
+<script>
+let transactions = [];
+try { transactions = JSON.parse(localStorage.getItem('family_erp_transactions') || '[]'); } catch(e) { transactions = []; }
+let recurringBills = [];
+try { recurringBills = JSON.parse(localStorage.getItem('family_erp_recurring_bills') || '[]'); } catch(e) { recurringBills = []; }
+let categoryChart = null, memberChart = null, toastTimer = null;
+
+// Lógica da Calculadora Rápida
+let calcVal = '0';
+let calcPrevVal = '';
+let calcOperator = null;
+let calcResetOnNext = false;
+
+function openCalcModal() {
+  document.getElementById('calcModal').classList.remove('hidden');
+}
+function closeCalcModal() {
+  document.getElementById('calcModal').classList.add('hidden');
+}
+function updateCalcDisplay() {
+  const disp = document.getElementById('calcDisplay');
+  const hist = document.getElementById('calcHistory');
+  disp.textContent = calcVal.replace('.', ',');
+  if (calcOperator && calcPrevVal !== '') {
+    const opSym = { '+': '+', '-': '−', '*': '×', '/': '÷' }[calcOperator] || calcOperator;
+    hist.textContent = `${calcPrevVal.replace('.', ',')} ${opSym}`;
+  } else {
+    hist.textContent = '';
+  }
+}
+function calcNum(n) {
+  if (calcVal === '0' || calcResetOnNext) {
+    calcVal = n;
+    calcResetOnNext = false;
+  } else {
+    if (calcVal.length < 12) calcVal += n;
+  }
+  updateCalcDisplay();
+}
+function calcDot() {
+  if (calcResetOnNext) {
+    calcVal = '0.';
+    calcResetOnNext = false;
+  } else if (!calcVal.includes('.')) {
+    calcVal += '.';
+  }
+  updateCalcDisplay();
+}
+function calcClear() {
+  calcVal = '0';
+  calcPrevVal = '';
+  calcOperator = null;
+  calcResetOnNext = false;
+  updateCalcDisplay();
+}
+function calcBackspace() {
+  if (calcResetOnNext) return;
+  if (calcVal.length > 1) {
+    calcVal = calcVal.slice(0, -1);
+  } else {
+    calcVal = '0';
+  }
+  updateCalcDisplay();
+}
+function calcPercent() {
+  const num = parseFloat(calcVal);
+  if (!isNaN(num)) {
+    calcVal = (num / 100).toString();
+    updateCalcDisplay();
+  }
+}
+function calcOp(op) {
+  if (calcOperator && !calcResetOnNext) {
+    calcEquals();
+  }
+  calcPrevVal = calcVal;
+  calcOperator = op;
+  calcResetOnNext = true;
+  updateCalcDisplay();
+}
+function calcEquals() {
+  if (!calcOperator || calcPrevVal === '') return;
+  const prev = parseFloat(calcPrevVal);
+  const curr = parseFloat(calcVal);
+  let res = 0;
+  if (isNaN(prev) || isNaN(curr)) return;
+
+  switch (calcOperator) {
+    case '+': res = prev + curr; break;
+    case '-': res = prev - curr; break;
+    case '*': res = prev * curr; break;
+    case '/': res = curr !== 0 ? prev / curr : 'Erro'; break;
+  }
+
+  if (res === 'Erro') {
+    calcVal = 'Erro';
+    calcPrevVal = '';
+    calcOperator = null;
+    calcResetOnNext = true;
+  } else {
+    calcVal = (Math.round(res * 10000) / 10000).toString();
+    calcPrevVal = '';
+    calcOperator = null;
+    calcResetOnNext = true;
+  }
+  updateCalcDisplay();
+}
+function calcUseValue() {
+  const val = parseFloat(calcVal);
+  if (isNaN(val) || val <= 0) {
+    showToast('Calcule um valor válido para utilizar.');
+    return;
+  }
+  closeCalcModal();
+  openModal();
+  document.getElementById('amount').value = val.toFixed(2);
+  showToast(`Valor R$ ${val.toFixed(2).replace('.', ',')} inserido na conta!`);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  setupYearFilter();
+  document.getElementById('date').value = localDateISO();
+  document.getElementById('recurringStart').value = localDateISO();
+  document.getElementById('recurringDueDay').value = String(new Date().getDate());
+  renderApp();
+});
+
+function toggleProfileMenu(){
+  const menu=document.getElementById('profileMenu');
+  const opening=menu.classList.contains('hidden');
+  menu.classList.toggle('hidden');
+  document.getElementById('profileMenuButton').setAttribute('aria-expanded',String(opening));
+}
+function closeProfileMenu(){document.getElementById('profileMenu').classList.add('hidden');document.getElementById('profileMenuButton').setAttribute('aria-expanded','false');}
+function copyFamilyCode(){const code=document.getElementById('profileFamilyCode').textContent.trim();if(!code||code==='—'){showToast('Código da família ainda não disponível.');return;}navigator.clipboard.writeText(code).then(()=>showToast('Código da família copiado!')).catch(()=>showToast('Não foi possível copiar automaticamente.'));}
+function updateProfileTheme(){const dark=document.documentElement.classList.contains('dark');const label=document.getElementById('profileThemeLabel');const icon=document.getElementById('profileThemeIcon');if(label)label.textContent=dark?'Tema escuro':'Tema claro';if(icon)icon.className=dark?'fa-solid fa-sun mr-1':'fa-solid fa-moon mr-1';}
+function setProfileData(name,family,code){document.getElementById('profileUserName').textContent=name||'Usuário';document.getElementById('profileFamilyName').textContent=family||'Família';document.getElementById('profileFamilyCode').textContent=code||'—';const field=document.getElementById('profileNameInput');if(field&&!field.value)field.value=name||'';updateProfileTheme();}
+function saveProfileName(){const field=document.getElementById('profileNameInput');const name=(field.value||'').trim().slice(0,50);if(!name){showToast('Digite seu nome antes de salvar.');return;}localStorage.setItem('blue_user_name',name);setProfileData(name,activeFamilyName,activeInviteCode);if(window.blueFamilyUpdateMemberName)window.blueFamilyUpdateMemberName(name);showToast('Nome do perfil atualizado!');}
+document.addEventListener('click',e=>{if(!e.target.closest('#profileMenu')&&!e.target.closest('#profileMenuButton'))closeProfileMenu();});
+
+function localDateISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function initTheme() {
+  const dark = localStorage.getItem('theme') === 'dark' ||
+    (!localStorage.getItem('theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.classList.toggle('dark', dark);
+  updateThemeIcons(dark);
+  updateProfileTheme();
+}
+function updateThemeIcons(dark) {
+  const cls = dark ? 'fa-solid fa-sun text-amber-400 text-lg' : 'fa-solid fa-moon text-slate-600 text-lg';
+  ['themeIcon','themeIconMobile'].forEach(id => { const el=document.getElementById(id); if(el) el.className=cls; });
+  const themeMeta = document.getElementById('themeColorMeta');
+  if (themeMeta) {
+    themeMeta.setAttribute('content', dark ? '#0f172a' : '#ffffff');
+  }
+}
+function toggleTheme() {
+  const dark = !document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark', dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  updateThemeIcons(dark);
+  updateProfileTheme();
+  renderCharts(getFilteredTransactions());
+}
+function setupYearFilter() {
+  const select = document.getElementById('filterYear');
+  const current = new Date().getFullYear();
+  select.innerHTML = '<option value="all">Todos os Anos</option>';
+  for(let y=current-5; y<=current+5; y++) {
+    const opt=document.createElement('option'); opt.value=y; opt.textContent=y;
+    if(y===current) opt.selected=true;
+    select.appendChild(opt);
+  }
+}
+function getFilteredTransactions() {
+  const month=document.getElementById('filterMonth').value;
+  const year=document.getElementById('filterYear').value;
+  const status=document.getElementById('filterStatus').value;
+  const category=document.getElementById('filterCategory').value;
+  const member=document.getElementById('filterMember').value;
+  const search=document.getElementById('searchInput').value.toLocaleLowerCase('pt-BR').trim();
+  return transactions.filter(t => {
+    const d=new Date(t.date+'T00:00:00');
+    if(month!=='all' && d.getMonth()!==Number(month)) return false;
+    if(year!=='all' && d.getFullYear()!==Number(year)) return false;
+    if(status!=='all' && t.status!==status) return false;
+    if(category!=='all' && t.category!==category) return false;
+    if(member!=='all' && t.member!==member) return false;
+    if(search && !String(t.description).toLocaleLowerCase('pt-BR').includes(search)) return false;
+    return true;
+  });
+}
+function applyFilters(){ renderApp(); }
+function renderApp() {
+  const data=getFilteredTransactions();
+  renderSummaryCards(data);
+  renderRecurringCards();
+  renderTable(data);
+  renderCharts(data);
+}
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0);
+}
+function formatDate(value) {
+  if(!value) return '';
+  const [y,m,d]=value.split('-'); return `${d}/${m}/${y}`;
+}
+function renderSummaryCards(data) {
+  let income=0, expense=0, pending=0, count=0;
+  data.forEach(t=>{
+    const v=Number(t.amount)||0;
+    if(t.type==='income') income+=v;
+    else { expense+=v; if(t.status==='pending'){pending+=v;count++;} }
+  });
+  const balance=income-expense;
+  document.getElementById('totalIncome').textContent=formatCurrency(income);
+  document.getElementById('totalExpense').textContent=formatCurrency(expense);
+  document.getElementById('netBalance').textContent=formatCurrency(balance);
+  document.getElementById('pendingExpense').textContent=formatCurrency(pending);
+  document.getElementById('pendingCount').textContent=`${count} conta(s) a pagar`;
+  const net=document.getElementById('netBalance'), bg=document.getElementById('balanceIconBg');
+  net.className=`mt-2 text-2xl font-extrabold ${balance<0?'text-rose-600 dark:text-rose-400':'text-blue-600 dark:text-blue-400'}`;
+  bg.className=`w-9 h-9 rounded-xl flex items-center justify-center ${balance<0?'bg-rose-100 text-rose-600 dark:bg-rose-900/40':'bg-blue-100 text-blue-600 dark:bg-blue-900/40'}`;
+  let pct=income>0?Math.round(expense/income*100):(expense>0?100:0);
+  const bar=document.getElementById('healthProgressBar'), badge=document.getElementById('healthBadge');
+  bar.style.width=Math.min(pct,100)+'%';
+  const level=pct<=50?['Excelente','bg-blue-600','bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300']:pct<=80?['Atenção','bg-amber-500','bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300']:['Crítico','bg-rose-500','bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300'];
+  bar.className=`h-full rounded-full transition-all ${level[1]}`;
+  badge.className=`self-start px-3 py-1 rounded-full text-xs font-bold ${level[2]}`;
+  badge.textContent=`${level[0]} (${pct}% do orçamento utilizado)`;
+}
+function escapeHTML(value) {
+  return String(value??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderTable(data) {
+  const tbody=document.getElementById('transactionTableBody');
+  const empty=document.getElementById('emptyState');
+  tbody.innerHTML='';
+  if(!data.length){empty.classList.remove('hidden');return;}
+  empty.classList.add('hidden');
+  [...data].sort((a,b)=>b.date.localeCompare(a.date)).forEach(t=>{
+    const income=t.type==='income', paid=t.status==='paid';
+    const tr=document.createElement('tr');
+    tr.className='hover:bg-slate-50 dark:hover:bg-slate-700/40 text-slate-700 dark:text-slate-200';
+    tr.innerHTML=`
+      <td class="py-3 px-4"><button onclick="toggleStatus('${escapeHTML(t.id)}')" class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold ${paid?'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300':'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}"><i class="fa-solid ${paid?'fa-check-circle':'fa-clock'} mr-1"></i>${paid?(income?'Recebido':'Pago'):'Pendente'}</button></td>
+      <td class="py-3 px-4 font-semibold">${escapeHTML(t.description)}</td>
+      <td class="py-3 px-4">${escapeHTML(t.category)}</td>
+      <td class="py-3 px-4">${escapeHTML(t.member)}</td>
+      <td class="py-3 px-4 text-slate-500">${formatDate(t.date)}</td>
+      <td class="py-3 px-4 text-right font-bold ${income?'text-blue-600':'text-rose-600'}">${income?'+':'−'} ${formatCurrency(t.amount)}</td>
+      <td class="py-3 px-4 text-center"><div class="flex items-center justify-center gap-2">
+        <button onclick="editTransaction('${escapeHTML(t.id)}')" class="p-1.5 text-slate-400 hover:text-blue-500" title="Editar"><i class="fa-solid fa-pen"></i></button>
+        <button onclick="deleteTransaction('${escapeHTML(t.id)}')" class="p-1.5 text-slate-400 hover:text-rose-500" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderCharts(data) {
+  if(typeof Chart==='undefined') return;
+  const dark=document.documentElement.classList.contains('dark');
+  const textColor=dark?'#cbd5e1':'#475569';
+  const categories={}, members={};
+  data.forEach(t=>{if(t.type==='expense'){categories[t.category]=(categories[t.category]||0)+Number(t.amount);members[t.member]=(members[t.member]||0)+Number(t.amount);}});
+  if(categoryChart) categoryChart.destroy();
+  categoryChart=new Chart(document.getElementById('categoryChart').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:Object.keys(categories).length?Object.keys(categories):['Sem Despesas'],datasets:[{data:Object.values(categories).length?Object.values(categories):[1],backgroundColor:['#3b82f6','#60a5fa','#f59e0b','#ef4444','#8b5cf6','#ec4899','#64748b','#0ea5e9'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:textColor,font:{family:'Inter',size:11}}}}}
+  });
+  if(memberChart) memberChart.destroy();
+  memberChart=new Chart(document.getElementById('memberChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:Object.keys(members).length?Object.keys(members):['Sem Dados'],datasets:[{label:'Total Gasto (R$)',data:Object.values(members).length?Object.values(members):[0],backgroundColor:'#3b82f6',borderRadius:8}]},
+    options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:textColor},grid:{display:false}},y:{ticks:{color:textColor},grid:{color:dark?'#334155':'#e2e8f0'}}},plugins:{legend:{display:false}}}
+  });
+}
+
+function saveRecurringToStorage() {
+  localStorage.setItem('family_erp_recurring_bills', JSON.stringify(recurringBills));
+  if (window.blueFamilySaveCollection && !window.blueFamilyApplyingRemote) window.blueFamilySaveCollection('recurringBills', recurringBills);
+}
+
+function payRecurringBill(id) {
+  const b = recurringBills.find(x => x.id === id);
+  if (!b) return;
+
+  const currentPaid = b.currentInstallment || (b.type === 'installment' ? (b.firstInstallment || 1) - 1 : 0);
+  const nextInstallment = currentPaid + 1;
+
+  if (b.type === 'installment' && nextInstallment > Number(b.installments)) {
+    showToast('Esta conta já teve todas as parcelas pagas.');
+    return;
+  }
+
+  const desc = b.type === 'installment' 
+    ? `${b.name} (${nextInstallment}/${b.installments})` 
+    : `${b.name} (Mensalidade)`;
+
+  const newTransaction = {
+    id: ((crypto.randomUUID && crypto.randomUUID()) || Date.now().toString()),
+    description: desc,
+    amount: Number(b.amount),
+    date: localDateISO(),
+    category: b.category || 'Outros',
+    member: b.member || 'Geral/Casa',
+    status: 'paid',
+    type: 'expense',
+    recurringId: b.id
+  };
+
+  transactions.push(newTransaction);
+  saveToLocalStorage();
+
+  if (b.type === 'installment') {
+    b.currentInstallment = nextInstallment;
+    if (b.currentInstallment >= Number(b.installments)) {
+      b.completed = true;
+      b.active = false;
+    }
+  }
+
+  saveRecurringToStorage();
+  renderApp();
+  showToast(`Despesa "${desc}" paga e descontada do saldo!`);
+}
+
+function renderRecurringCards() {
+  const container = document.getElementById('recurringCards');
+  if (!container) return;
+  const active = recurringBills.filter(b => b.active !== false && !b.completed);
+  const monthly = active.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+  const remaining = active.filter(b => b.type === 'installment').reduce((sum, b) => {
+    const paid = b.currentInstallment || ((b.firstInstallment || 1) - 1);
+    return sum + Math.max(0, Number(b.installments || 0) - paid);
+  }, 0);
+  document.getElementById('recurringMonthlyTotal').textContent = formatCurrency(monthly);
+  document.getElementById('recurringActiveCount').textContent = active.length;
+  document.getElementById('recurringInstallmentsLeft').textContent = remaining;
+  document.getElementById('recurringEmpty').classList.toggle('hidden', recurringBills.length > 0);
+  container.innerHTML = '';
+  if (!recurringBills.length) return;
+  recurringBills.forEach(b => {
+    const paidInstallments = b.type === 'installment'
+      ? (b.currentInstallment || (b.firstInstallment || 1) - 1) : 0;
+    const total = Number(b.installments || 0);
+
+    const isActive = b.active !== false && !b.completed;
+    const progress = total ? Math.min(100, Math.round(paidInstallments / total * 100)) : 0;
+    const card = document.createElement('div');
+    card.className = 'rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3 bg-white dark:bg-slate-800 shadow-sm';
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="font-bold text-sm break-words">${escapeHTML(b.name)}</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">${b.type === 'fixed' ? 'Conta fixa' : `Parcelada • ${paidInstallments}/${total} pagas`}</p>
+        </div>
+        <span class="text-[10px] font-bold px-2 py-1 rounded-full ${isActive ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}">${isActive ? 'Ativa' : (b.completed ? 'Concluída' : 'Encerrada')}</span>
+      </div>
+      <p class="text-xl font-extrabold">${formatCurrency(b.amount)}<span class="text-xs font-medium text-slate-500"> / mês</span></p>
+      ${b.type === 'installment' ? `<div class="space-y-1"><div class="flex justify-between text-[10px] text-slate-500"><span>Progresso de parcelas</span><span>${progress}%</span></div><div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden"><div class="h-full bg-blue-600 rounded-full" style="width:${progress}%"></div></div></div>` : ''}
+      <div class="text-[11px] text-slate-500">Vencimento todo dia ${b.dueDay} • ${escapeHTML(b.category || 'Outros')} • ${escapeHTML(b.member || 'Geral/Casa')}</div>
+      <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+        ${isActive ? `
+          <button onclick="payRecurringBill('${escapeHTML(b.id)}')" class="flex-1 inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm">
+            <i class="fa-solid fa-credit-card mr-1.5"></i>Pagar
+          </button>
+          <button onclick="editRecurring('${escapeHTML(b.id)}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-pen"></i></button>
+          <button onclick="endRecurring('${escapeHTML(b.id)}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40"><i class="fa-solid fa-power-off"></i></button>
+        ` : ''}
+        <button onclick="deleteRecurring('${escapeHTML(b.id)}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-trash"></i></button>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+function toggleInstallmentFields() {
+  const installment = document.getElementById('recurringType').value === 'installment';
+  document.getElementById('installmentFields').classList.toggle('hidden', !installment);
+  document.getElementById('recurringInstallments').required = installment;
+}
+function openRecurringModal() {
+  document.getElementById('recurringForm').reset();
+  document.getElementById('recurringEditId').value = '';
+  document.getElementById('recurringStart').value = localDateISO();
+  document.getElementById('recurringDueDay').value = String(new Date().getDate());
+  document.getElementById('recurringFirstInstallment').value = '1';
+  document.getElementById('recurringModalTitle').innerHTML = '<i class="fa-solid fa-repeat text-blue-500 mr-2"></i>Nova conta recorrente';
+  toggleInstallmentFields();
+  document.getElementById('recurringModal').classList.remove('hidden');
+}
+function closeRecurringModal() {
+  document.getElementById('recurringModal').classList.add('hidden');
+  document.getElementById('recurringForm').reset();
+  document.getElementById('recurringEditId').value = '';
+  toggleInstallmentFields();
+}
+function saveRecurring(event) {
+  event.preventDefault();
+  const id = document.getElementById('recurringEditId').value;
+  const type = document.getElementById('recurringType').value;
+  const amount = Number(document.getElementById('recurringAmount').value);
+  const dueDay = Number(document.getElementById('recurringDueDay').value);
+  const installments = Number(document.getElementById('recurringInstallments').value);
+  if (!Number.isFinite(amount) || amount <= 0 || dueDay < 1 || dueDay > 31) {
+    showToast('Confira o valor e o dia do vencimento.'); return;
+  }
+  if (type === 'installment' && (!Number.isInteger(installments) || installments < 1)) {
+    showToast('Informe a quantidade de parcelas.'); return;
+  }
+  const existing = recurringBills.find(b => b.id === id);
+  const firstInst = type === 'installment' ? Number(document.getElementById('recurringFirstInstallment').value || 1) : 1;
+  const bill = {
+    id: id || ((crypto.randomUUID && crypto.randomUUID()) || Date.now().toString()),
+    name: document.getElementById('recurringName').value.trim(),
+    type, amount, dueDay,
+    startDate: document.getElementById('recurringStart').value,
+    installments: type === 'installment' ? installments : null,
+    firstInstallment: firstInst,
+    currentInstallment: existing ? (existing.currentInstallment || firstInst - 1) : firstInst - 1,
+    category: document.getElementById('recurringCategory').value,
+    member: document.getElementById('recurringMember').value,
+    active: existing ? existing.active !== false : true,
+    completed: false
+  };
+  if (!bill.name || !bill.startDate) { showToast('Preencha o nome e o primeiro vencimento.'); return; }
+  if (existing) {
+    Object.assign(existing, bill);
+  } else {
+    recurringBills.push(bill);
+  }
+  saveRecurringToStorage();
+  closeRecurringModal();
+  renderApp();
+  showToast(existing ? 'Conta recorrente atualizada!' : 'Conta recorrente cadastrada!');
+}
+function editRecurring(id) {
+  const b = recurringBills.find(x => x.id === id);
+  if (!b) return;
+  openRecurringModal();
+  document.getElementById('recurringEditId').value = b.id;
+  document.getElementById('recurringName').value = b.name;
+  document.getElementById('recurringType').value = b.type;
+  document.getElementById('recurringAmount').value = b.amount;
+  document.getElementById('recurringStart').value = b.startDate;
+  document.getElementById('recurringDueDay').value = b.dueDay;
+  document.getElementById('recurringInstallments').value = b.installments || '';
+  document.getElementById('recurringFirstInstallment').value = b.firstInstallment || 1;
+  document.getElementById('recurringCategory').value = b.category || 'Outros';
+  document.getElementById('recurringMember').value = b.member || 'Geral/Casa';
+  document.getElementById('recurringModalTitle').innerHTML = '<i class="fa-solid fa-pen text-blue-500 mr-2"></i>Editar conta recorrente';
+  toggleInstallmentFields();
+}
+function endRecurring(id) {
+  const b = recurringBills.find(x => x.id === id);
+  if (!b || !confirm(`Encerrar "${b.name}"? As cobranças já pagas serão mantidas no extrato.`)) return;
+  b.active = false; b.completed = false;
+  saveRecurringToStorage(); renderApp(); showToast('Conta encerrada. Histórico mantido no extrato.');
+}
+function deleteRecurring(id) {
+  const b = recurringBills.find(x => x.id === id);
+  if (!b || !confirm(`Excluir o cadastro de "${b.name}"? As cobranças geradas continuarão no extrato.`)) return;
+  recurringBills = recurringBills.filter(x => x.id !== id);
+  saveRecurringToStorage(); renderApp(); showToast('Cadastro excluído. Histórico mantido.');
+}
+
+function saveTransaction(event) {
+  event.preventDefault();
+  const id=document.getElementById('editId').value;
+  const amount=Number(document.getElementById('amount').value);
+  if(!Number.isFinite(amount)||amount<=0){showToast('Informe um valor válido.');return;}
+  const item={
+    id:id||((crypto.randomUUID&&crypto.randomUUID())||Date.now().toString()),
+    description:document.getElementById('description').value.trim(),
+    amount,
+    date:document.getElementById('date').value,
+    category:document.getElementById('category').value,
+    member:document.getElementById('member').value,
+    status:document.getElementById('status').value,
+    type:document.querySelector('input[name="type"]:checked').value
+  };
+  if(!item.description||!item.date){showToast('Preencha os campos obrigatórios.');return;}
+  const index=transactions.findIndex(t=>t.id===id);
+  if(index>=0){transactions[index]=item;showToast('Lançamento atualizado!');}
+  else {transactions.push(item);showToast('Novo lançamento adicionado!');}
+  saveToLocalStorage(); closeModal(); renderApp();
+}
+function editTransaction(id) {
+  const t=transactions.find(x=>x.id===id); if(!t)return;
+  document.getElementById('editId').value=t.id;
+  document.getElementById('description').value=t.description;
+  document.getElementById('amount').value=t.amount;
+  document.getElementById('date').value=t.date;
+  document.getElementById('category').value=t.category;
+  document.getElementById('member').value=t.member;
+  document.getElementById('status').value=t.status;
+  document.getElementById(t.type==='income'?'typeIncome':'typeExpense').checked=true;
+  document.getElementById('modalTitle').innerHTML='<i class="fa-solid fa-pen text-blue-500 mr-2"></i>Editar Lançamento';
+  openModal();
+}
+function deleteTransaction(id) {
+  if(!confirm('Tem certeza de que deseja excluir este lançamento?'))return;
+  transactions=transactions.filter(t=>t.id!==id);saveToLocalStorage();renderApp();showToast('Lançamento removido.');
+}
+function toggleStatus(id) {
+  const t=transactions.find(x=>x.id===id);if(!t)return;
+  t.status=t.status==='paid'?'pending':'paid';saveToLocalStorage();renderApp();
+  showToast(`Status alterado para ${t.status==='paid'?'Pago/Concluído':'Pendente'}`);
+}
+function saveToLocalStorage(){
+  localStorage.setItem('family_erp_transactions',JSON.stringify(transactions));
+  if (window.blueFamilySaveCollection && !window.blueFamilyApplyingRemote) window.blueFamilySaveCollection('transactions', transactions);
+}
+function loadMockData() {
+  if(transactions.length && !confirm('Carregar dados de exemplo substituirá os lançamentos atuais. Continuar?'))return;
+  const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
+  transactions=[
+    {id:'demo1',description:'Salário Mãe',amount:4500,date:`${y}-${m}-01`,category:'Salário/Renda',member:'Mãe',status:'paid',type:'income'},
+    {id:'demo2',description:'Salário Pai',amount:5200,date:`${y}-${m}-01`,category:'Salário/Renda',member:'Pai',status:'paid',type:'income'},
+    {id:'demo3',description:'Aluguel / Condomínio',amount:2200,date:`${y}-${m}-10`,category:'Moradia',member:'Geral/Casa',status:'paid',type:'expense'},
+    {id:'demo4',description:'Supermercado do Mês',amount:1350.50,date:`${y}-${m}-05`,category:'Alimentação',member:'Mãe',status:'paid',type:'expense'},
+    {id:'demo5',description:'Escola / Curso',amount:890,date:`${y}-${m}-15`,category:'Educação',member:'Filho(a)',status:'pending',type:'expense'},
+    {id:'demo6',description:'Combustível Carro',amount:350,date:`${y}-${m}-12`,category:'Transporte',member:'Pai',status:'paid',type:'expense'},
+    {id:'demo7',description:'Plano de Saúde Familiar',amount:780,date:`${y}-${m}-20`,category:'Saúde',member:'Geral/Casa',status:'pending',type:'expense'},
+    {id:'demo8',description:'Cinema & Lanche',amount:180,date:`${y}-${m}-18`,category:'Lazer',member:'Filho(a)',status:'paid',type:'expense'}
+  ];
+  saveToLocalStorage();renderApp();showToast('Dados de exemplo carregados!');
+}
+function toggleExportMenu(){document.getElementById('exportMenu').classList.toggle('hidden');}
+function downloadFile(content,type,filename) {
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function exportCSV() {
+  document.getElementById('exportMenu').classList.add('hidden');
+  if(!transactions.length){showToast('Nenhum dado para exportar.');return;}
+  const rows=[['ID','Descricao','Valor','Tipo','Categoria','Membro','Data','Status']];
+  transactions.forEach(t=>rows.push([t.id,t.description,t.amount,t.type,t.category,t.member,t.date,t.status]));
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  downloadFile(csv,'text/csv;charset=utf-8',`financas_familiares_${localDateISO()}.csv`);
+}
+function exportJSON() {
+  document.getElementById('exportMenu').classList.add('hidden');
+  if(!transactions.length){showToast('Nenhum dado para exportar.');return;}
+  downloadFile(JSON.stringify({transactions, recurringBills},null,2),'application/json;charset=utf-8',`financas_familiares_${localDateISO()}.json`);
+}
+function openModal(){document.getElementById('modal').classList.remove('hidden');}
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('transactionForm').reset();
+  document.getElementById('editId').value='';
+  document.getElementById('date').value=localDateISO();
+  document.getElementById('typeExpense').checked=true;
+  document.getElementById('modalTitle').innerHTML='<i class="fa-solid fa-circle-plus text-blue-500 mr-2"></i>Nova Conta / Lançamento';
+}
+function showToast(message) {
+  const toast=document.getElementById('toast');
+  document.getElementById('toastMessage').textContent=message;
+  toast.classList.remove('translate-y-20','opacity-0');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toast.classList.add('translate-y-20','opacity-0'),3000);
+}
+
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('exportMenu');
+  if(!e.target.closest('#exportMenu')&&!e.target.closest('[onclick="toggleExportMenu()"]'))menu.classList.add('hidden');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();closeRecurringModal();closeCalcModal();}
+  if (!document.getElementById('calcModal').classList.contains('hidden')) {
+    if (e.key >= '0' && e.key <= '9') calcNum(e.key);
+    if (e.key === '.' || e.key === ',') calcDot();
+    if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') calcOp(e.key);
+    if (e.key === 'Enter' || e.key === '=') calcEquals();
+    if (e.key === 'Backspace') calcBackspace();
+    if (e.key === 'c' || e.key === 'C') calcClear();
+  }
+});
+</script>
+
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
+import { getFirestore, doc, collection, setDoc, getDoc, onSnapshot, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyAyMo0vVyXumY9jHbbJZgKujC60WMJt7Ec',
+  authDomain: 'blue-family-20b83.firebaseapp.com',
+  projectId: 'blue-family-20b83',
+  storageBucket: 'blue-family-20b83.firebasestorage.app',
+  messagingSenderId: '670448761812',
+  appId: '1:670448761812:web:cd10683c9cecb33e94f441',
+  measurementId: 'G-TBQGWR4HVG'
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUser = null;
+let activeFamilyId = localStorage.getItem('blue_family_id') || '';
+let stopTransactions = null;
+let stopRecurring = null;
+let stopMembers = null;
+let stopFamilyDoc = null;
+let activeFamilyName = '';
+let activeInviteCode = localStorage.getItem('blue_family_invite_code') || '';
+let remoteTransactionIds = new Set();
+let remoteRecurringIds = new Set();
+let anonymousSignInStarted = false;
+window.blueFamilyApplyingRemote = false;
+
+const $ = id => document.getElementById(id);
+function message(text, error=false) {
+  const el = $('blueAuthMessage');
+  el.textContent = text;
+  el.classList.remove('hidden','bg-blue-50','dark:bg-blue-950/50','text-blue-800','dark:text-blue-200','bg-rose-50','dark:bg-rose-950/40','text-rose-700','dark:text-rose-200');
+  el.classList.add(...(error ? ['bg-rose-50','dark:bg-rose-950/40','text-rose-700','dark:text-rose-200'] : ['bg-blue-50','dark:bg-blue-950/50','text-blue-800','dark:text-blue-200']));
+}
+function friendlyError(err) {
+  const map = {
+    'auth/operation-not-allowed':'Ative o provedor "Anônimo" em Firebase > Authentication > Método de login.',
+    'auth/api-key-not-valid':'A chave de API do Firebase ainda está sendo recusada. Precisamos corrigir a chave no Google Cloud/Firebase.',
+    'permission-denied':'O Firebase bloqueou a operação. Confira as regras do Firestore.'
+  };
+  return map[err.code] || err.message || 'Não foi possível concluir. Tente novamente.';
+}
+function showAuth() { $('blueAuthGate').classList.remove('hidden'); }
+function hideAuth() { $('blueAuthGate').classList.add('hidden'); }
+function stopFamilyListeners() {
+  if (stopTransactions) stopTransactions();
+  if (stopRecurring) stopRecurring();
+  if (stopMembers) stopMembers();
+  if (stopFamilyDoc) stopFamilyDoc();
+  stopTransactions = stopRecurring = stopMembers = stopFamilyDoc = null;
+}
+function makeInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return 'BLUE-' + Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+async function seedLocalData(familyId) {
+  const batch = writeBatch(db);
+  const txs = Array.isArray(transactions) ? transactions : [];
+  const bills = Array.isArray(recurringBills) ? recurringBills : [];
+  txs.forEach(item => batch.set(doc(db,'families',familyId,'transactions',String(item.id)), item));
+  bills.forEach(item => batch.set(doc(db,'families',familyId,'recurringBills',String(item.id)), item));
+  if (txs.length + bills.length) await batch.commit();
+}
+function currentDisplayName(){return ($('blueUserName').value.trim() || localStorage.getItem('blue_user_name') || 'Usuário').slice(0,50);}
+function showFamilyMembers(snap){
+  const list=$('profileMembersList');
+  const people=snap.docs.map(d=>d.data());
+  $('profileMemberCount').textContent=people.length+' '+(people.length===1?'pessoa':'pessoas');
+  list.innerHTML='';
+  if(!people.length){list.innerHTML='<p class="text-xs text-slate-500">Nenhum participante encontrado.</p>';return;}
+  people.forEach((person,i)=>{const row=document.createElement('div');row.className='flex items-center gap-2 text-xs';const avatar=document.createElement('span');avatar.className='w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 flex items-center justify-center';avatar.innerHTML='<i class="fa-solid fa-user"></i>';const name=document.createElement('span');name.className='font-medium truncate';name.textContent=person.displayName||('Membro '+(i+1));const role=document.createElement('span');role.className='ml-auto text-[10px] text-slate-400';role.textContent=person.role==='owner'?'Administrador':(person.uid===currentUser?.uid?'Você':'Membro');row.append(avatar,name,role);list.appendChild(row);});
+}
+
+async function createFamily() {
+  if (!currentUser) { message('Conectando com segurança. Aguarde um instante.'); return; }
+  try {
+    $('blueCreateFamily').disabled = true;
+    const familyRef = doc(collection(db,'families'));
+    const code = makeInviteCode();
+    const displayName = currentDisplayName();
+    localStorage.setItem('blue_user_name',displayName);
+    const batch = writeBatch(db);
+    batch.set(familyRef,{name:($('blueFamilyName').value.trim() || 'Minha Família'),ownerUid:currentUser.uid,createdAt:serverTimestamp()});
+    batch.set(doc(db,'families',familyRef.id,'members',currentUser.uid),{uid:currentUser.uid,displayName,role:'owner',joinedAt:serverTimestamp()});
+    batch.set(doc(db,'familyInvites',code),{familyId:familyRef.id,ownerUid:currentUser.uid,createdAt:serverTimestamp()});
+    await batch.commit();
+    await seedLocalData(familyRef.id);
+    activeFamilyId = familyRef.id;
+    localStorage.setItem('blue_family_id',activeFamilyId);
+    localStorage.setItem('blue_family_invite_code',code);
+    activeInviteCode=code;
+    $('blueInviteBanner').classList.remove('hidden');
+    $('blueInviteCodeValue').textContent = code;
+    message('Família criada! Compartilhe o código com sua mãe.');
+    $('blueCreateFamily').textContent = 'Família criada';
+    attachFamily(activeFamilyId);
+  } catch(err) { message(friendlyError(err),true); }
+  finally { $('blueCreateFamily').disabled = false; }
+}
+async function joinFamily() {
+  if (!currentUser) { message('Conectando com segurança. Aguarde um instante.'); return; }
+  const code = $('blueInviteCode').value.trim().toUpperCase();
+  if (!/^(?:BLUE-[A-HJ-NP-Z2-9]{12}|[A-HJ-NP-Z2-9]{8})$/.test(code)) { message('Digite o código familiar completo.',true); return; }
+  try {
+    $('blueJoinFamily').disabled = true;
+    const inviteSnap = await getDoc(doc(db,'familyInvites',code));
+    if (!inviteSnap.exists()) throw new Error('Código não encontrado. Confira se digitou corretamente.');
+    const familyId = inviteSnap.data().familyId;
+    const familySnap = await getDoc(doc(db,'families',familyId));
+    if (!familySnap.exists()) throw new Error('Esta família não está mais disponível.');
+    const displayName=currentDisplayName();
+    localStorage.setItem('blue_user_name',displayName);
+    await setDoc(doc(db,'families',familyId,'members',currentUser.uid),{uid:currentUser.uid,displayName,role:'editor',inviteCode:code,joinedAt:serverTimestamp()});
+    activeFamilyId = familyId;
+    activeInviteCode=code;
+    localStorage.setItem('blue_family_invite_code',code);
+    localStorage.setItem('blue_family_id',activeFamilyId);
+    message('Você entrou na família ' + (familySnap.data().name || '') + '. Sincronizando os dados...');
+    attachFamily(activeFamilyId);
+  } catch(err) { message(friendlyError(err),true); }
+  finally { $('blueJoinFamily').disabled = false; }
+}
+function attachFamily(familyId) {
+  stopFamilyListeners();
+  showAuth();
+  $('familyPanel').classList.add('hidden');
+  $('blueSignOut').classList.remove('hidden');
+  message('Conectando os celulares e sincronizando os dados...');
+  const memberRef = doc(db,'families',familyId,'members',currentUser.uid);
+  getDoc(memberRef).then(memberSnap => {
+    if (!memberSnap.exists()) {
+      localStorage.removeItem('blue_family_id'); activeFamilyId='';
+      $('familyPanel').classList.remove('hidden');
+      $('blueSignOut').classList.add('hidden');
+      message('Código não vinculado neste aparelho. Digite o código da família.',true);
+      return;
+    }
+    const txRef = collection(db,'families',familyId,'transactions');
+    const billRef = collection(db,'families',familyId,'recurringBills');
+    const membersRef = collection(db,'families',familyId,'members');
+    stopMembers = onSnapshot(membersRef,showFamilyMembers,err=>console.warn('Falha ao listar membros:',err));
+    stopFamilyDoc = onSnapshot(doc(db,'families',familyId),snap=>{
+      activeFamilyName=snap.exists()?(snap.data().name||'Minha Família'):'Família';
+      setProfileData(localStorage.getItem('blue_user_name')||memberSnap.data().displayName||'Usuário',activeFamilyName,activeInviteCode);
+    });
+    setProfileData(localStorage.getItem('blue_user_name')||memberSnap.data().displayName||'Usuário',activeFamilyName,activeInviteCode);
+    let gotTx=false, gotBills=false;
+    stopTransactions = onSnapshot(txRef, snap => {
+      remoteTransactionIds = new Set(snap.docs.map(d=>d.id));
+      window.blueFamilyApplyingRemote = true;
+      transactions = snap.docs.map(d=>({ ...d.data(), id:d.id }));
+      localStorage.setItem('family_erp_transactions',JSON.stringify(transactions));
+      window.blueFamilyApplyingRemote = false;
+      gotTx=true;
+      if (gotTx && gotBills) { message('Tudo sincronizado em tempo real.'); hideAuth(); renderApp(); }
+    }, err => message('Erro ao carregar lançamentos: '+friendlyError(err),true));
+    stopRecurring = onSnapshot(billRef, snap => {
+      remoteRecurringIds = new Set(snap.docs.map(d=>d.id));
+      window.blueFamilyApplyingRemote = true;
+      recurringBills = snap.docs.map(d=>({ ...d.data(), id:d.id }));
+      localStorage.setItem('family_erp_recurring_bills',JSON.stringify(recurringBills));
+      window.blueFamilyApplyingRemote = false;
+      gotBills=true;
+      if (gotTx && gotBills) { message('Tudo sincronizado em tempo real.'); hideAuth(); renderApp(); }
+    }, err => message('Erro ao carregar contas recorrentes: '+friendlyError(err),true));
+  }).catch(err => message(friendlyError(err),true));
+}
+window.blueFamilySaveCollection = async (kind, items) => {
+  if (!currentUser || !activeFamilyId || window.blueFamilyApplyingRemote) return;
+  const collectionName = kind === 'transactions' ? 'transactions' : 'recurringBills';
+  const known = kind === 'transactions' ? remoteTransactionIds : remoteRecurringIds;
+  try {
+    const batch = writeBatch(db);
+    const next = new Set(items.map(x=>String(x.id)));
+    items.forEach(item => batch.set(doc(db,'families',activeFamilyId,collectionName,String(item.id)),item));
+    known.forEach(id => { if (!next.has(id)) batch.delete(doc(db,'families',activeFamilyId,collectionName,id)); });
+    await batch.commit();
+    if (kind === 'transactions') remoteTransactionIds = next; else remoteRecurringIds = next;
+  } catch(err) {
+    console.error('Falha ao sincronizar Blue Family:',err);
+    if (typeof showToast === 'function') showToast('Não foi possível sincronizar. Confira sua conexão.');
+  }
+};
+
+window.blueFamilyUpdateMemberName = name => {if(currentUser&&activeFamilyId)setDoc(doc(db,'families',activeFamilyId,'members',currentUser.uid),{displayName:name},{merge:true}).catch(err=>console.warn('Não foi possível atualizar o nome:',err));};
+$('blueUserName').value=localStorage.getItem('blue_user_name')||'';
+$('blueUserName').addEventListener('change',()=>{const name=currentDisplayName();localStorage.setItem('blue_user_name',name);if(currentUser&&activeFamilyId)setDoc(doc(db,'families',activeFamilyId,'members',currentUser.uid),{displayName:name},{merge:true}).catch(err=>console.warn('Não foi possível atualizar o nome:',err));setProfileData(name,activeFamilyName,activeInviteCode);});
+$('blueCreateFamily').addEventListener('click',createFamily);
+$('blueJoinFamily').addEventListener('click',joinFamily);
+$('blueSignOut').addEventListener('click',() => {
+  stopFamilyListeners(); activeFamilyId=''; activeFamilyName=''; setProfileData(localStorage.getItem('blue_user_name')||'Usuário','Sem família','—'); localStorage.removeItem('blue_family_id');
+  $('familyPanel').classList.remove('hidden'); $('blueSignOut').classList.add('hidden');
+  $('blueCreateFamily').textContent='Criar família e gerar código';
+  message('Este aparelho foi desconectado da família. Digite outro código ou crie uma família.');
+  showAuth();
+});
+$('blueInviteCode').addEventListener('input',e=>{
+  let v=e.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'');
+  if (v.startsWith('BLUE')) v='BLUE-'+v.slice(4).replace(/^-/,'');
+  e.target.value=v.slice(0,17);
+});
+const savedInviteCode = localStorage.getItem('blue_family_invite_code');
+if(savedInviteCode)activeInviteCode=savedInviteCode;
+if (savedInviteCode) { $('blueInviteBanner').classList.remove('hidden'); $('blueInviteCodeValue').textContent = savedInviteCode; }
+$('blueCopyInvite').addEventListener('click', async () => { const code = $('blueInviteCodeValue').textContent; try { await navigator.clipboard.writeText(code); message('Código copiado! Envie para sua mãe.'); } catch (_) { message('Copie este código: ' + code); } });
+onAuthStateChanged(auth, async user => {
+  currentUser = user;
+  if (!user) {
+    if (anonymousSignInStarted) return;
+    anonymousSignInStarted = true;
+    try { await signInAnonymously(auth); }
+    catch(err) { anonymousSignInStarted=false; showAuth(); $('familyPanel').classList.remove('hidden'); message(friendlyError(err),true); }
+    return;
+  }
+  anonymousSignInStarted = false;
+  if (activeFamilyId) attachFamily(activeFamilyId);
+  else { showAuth(); $('familyPanel').classList.remove('hidden'); $('blueSignOut').classList.add('hidden'); message('Crie uma família ou informe o código que recebeu.'); }
+});
+</script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js")
+      .catch((error) => console.warn("Não foi possível ativar o modo offline:", error));
+  });
+}
+</script>
+</body>
+</html>
